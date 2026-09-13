@@ -1,129 +1,61 @@
-# VenaX — Plug-and-Play Local AI Server
+# VenaX
 
-Turn any spare PC into a self-contained AI server: boot from USB, connect
-to Wi-Fi (or just plug in Ethernet), and every device on the same network
-gets a private ChatGPT-style web UI backed by Ollama — no cloud, no account,
-no internet dependency once the model is downloaded.
+VenaX is a lightweight Linux-based operating system designed to turn a spare PC into a private local AI server.
 
-## What was added on top of your original build-iso.sh
+It runs Ollama locally and provides a web interface that other devices on the same network can access.
 
-Your original script already did the hard part (Debian rootfs, Ollama
-install, a basic chat page, the `wifi` tool, mDNS, firewall). This version
-adds the "plug and play" layer around it:
+No cloud account is required — connect the VenaX machine to your network and use the provided local URL.
 
-| Feature | How |
-|---|---|
-| Hardware detection | `venax-detect-hardware` reads `/proc` + `lspci` at boot, writes `/var/lib/venax/hardware.json` |
-| Model suggestions | `model_catalog.py` maps detected RAM to a shortlist of Ollama models that will actually run well |
-| One-click model download | Web UI **Models** tab, with a live progress bar (streamed from Ollama's `/api/pull`) |
-| System usage | Web UI **System** tab — RAM, load average, disk free, uptime, refreshed every 4s |
-| Share URL | Web UI **Connect** tab shows the LAN URL + `venax.local` + the raw Ollama API URL |
-| Auto-login | Console auto-logs in as `venax` so the startup banner runs with zero typing |
-| Model persistence | Optional `VENAXDATA` partition — if present, downloaded models survive a reboot instead of living only in RAM |
-| CLI parity | `venax-models` lets you download a suggested model from the console too, no browser needed |
+## Quick Start
 
-## Boot flow
+### 1. Download VenaX
 
-1. **Plug in USB, boot.** GRUB has a normal entry and a "with persistence" entry.
-2. **Auto-login as `venax`** (password `venax` if you ever need it over SSH/console).
-3. `venax-startup` runs automatically:
-   - If Ethernet is already up, it skips straight to services.
-   - If not connected, it launches the `wifi` tool: pick a network, type
-     the password, done.
-4. In parallel/after, systemd brings up, in order: `venax-persist` (mounts
-   `VENAXDATA` if present) → `venax-detect-hardware` (writes the hardware
-   profile) → `ollama` → `venax-web`.
-5. The console prints the LAN URL, the top suggested models for *this*
-   machine, and whether persistence is on.
-6. Anyone on the same Wi-Fi/Ethernet opens `http://venax.local:8080` (or
-   the printed IP) and gets the full web UI: **Chat / Models / System /
-   Connect**.
+Download the latest pre-built VenaX ISO from the **Releases** section of this repository.
 
-## Enabling model persistence (optional but recommended)
+### 2. Download Rufus
 
-Without this, VenaX runs entirely from RAM (standard live-boot behavior):
-fast and disposable, but every downloaded model is gone on reboot.
+Download Rufus from the official website:
 
-To make models persistent, add a second partition to the USB stick (or use
-a second USB drive) formatted ext4 and labeled `VENAXDATA`:
+https://rufus.ie/
 
-```bash
-# WARNING: destructive — check the device name with lsblk first
-sudo mkfs.ext4 -L VENAXDATA /dev/sdX2
-```
+### 3. Create a Bootable USB
 
-Boot with the "VenaX (with persistence)" GRUB entry. `venax-persist`
-detects the label automatically, mounts it at `/mnt/venax-data`, and points
-Ollama's `OLLAMA_MODELS` at it — no other configuration needed. Give it
-enough space for whatever models you plan to keep (models range roughly
-0.4 GB to 40+ GB — see the catalog below).
+1. Insert a USB drive into your computer.
+2. Open Rufus.
+3. Select your USB drive under **Device**.
+4. Select the downloaded VenaX `.iso` under **Boot selection**.
+5. Click **Start**.
+6. Confirm the USB will be formatted and wait for the process to finish.
 
-## Model catalog / suggestion logic
+> **Warning:** Creating the bootable USB will erase the selected USB drive.
 
-`model_catalog.py` (`/usr/local/lib/venax-web/model_catalog.py` in the
-image) is a hand-picked list of Ollama models tagged with an approximate
-minimum RAM. `suggestions_for(ram_gb)` returns the largest models that
-should comfortably fit, plus the smallest catalog entry as a guaranteed
-fallback. Edit this file (and rerun the build) to change what gets
-suggested — e.g. add your own fine-tunes or swap in newer model tags.
+### 4. Boot VenaX
 
-This build does **not** install GPU drivers, so inference is CPU-only even
-if an NVIDIA/AMD GPU is detected (the hardware page will still show it, for
-your information, and note it's not accelerated). Adding real GPU
-acceleration is a natural next step — see "Future work" below.
+1. Insert the VenaX USB into the PC you want to use as the AI server.
+2. Start or restart the PC.
+3. Open the computer's **Boot Menu**.
+4. Select the VenaX USB drive.
+5. VenaX will boot and start its services.
 
-## Web UI tabs
+### 5. Connect to Wi-Fi
 
-- **Chat** — pick an installed model, chat, responses stream token by token.
-- **Models** — suggested models for this machine with a Download button and
-  progress bar; installed models listed separately.
-- **System** — live RAM/CPU-load/disk/uptime, plus the static hardware
-  summary (CPU, RAM, detected GPU, tier).
-- **Connect** — the URLs to hand to someone else on the network.
+After VenaX starts:
 
-All of this talks to Ollama's normal REST API (`/api/generate`,
-`/api/pull`, `/api/tags`, `/api/ps`, `/api/delete`, ...), which
-`venax-web`'s `server.py` transparently proxies and streams — any other
-Ollama-compatible client (mobile app, another script) can also just point
-at `http://<server-ip>:11434` directly.
+1. Follow the terminal instructions to select your Wi-Fi network.
+2. Enter the Wi-Fi password.
+3. Wait for VenaX to establish the network connection.
 
-## Useful commands (on the server console)
+Ethernet can also be used.
 
-```
-venax-status      full status: network, services, hardware, models
-venax-models      download a suggested model from the console
-wifi              (re)connect to Wi-Fi
-ollama list       installed models
-ollama run <tag>  chat with a model directly in the terminal
-```
+### 6. Connect from Another Device
 
-## Building
+Once VenaX is connected to the network, it will display a local URL in the terminal.
 
-Same as before:
+On another device connected to the **same network**:
 
-```bash
-chmod +x build-iso.sh
-./build-iso.sh
-```
+1. Open a web browser.
+2. Enter the URL displayed by VenaX.
+3. The VenaX web interface will open.
+4. Use the interface to interact with your local AI server.
 
-Needs `debootstrap`, `grub-mkrescue`, `mksquashfs`, `sudo`, and internet
-access on the *build* machine (it pulls Debian + Ollama during the build,
-not at boot time). Output ISO lands in `output/`.
-
-```bash
-sudo dd if=output/VenaX-0.1.0-x86_64.iso of=/dev/sdX bs=4M status=progress conv=fsync
-```
-
-## Future work (not in this version)
-
-- **GPU acceleration**: install NVIDIA/AMD drivers + CUDA/ROCm runtime in
-  the rootfs and set `OLLAMA_*` GPU env vars; hardware detection already
-  identifies the GPU vendor, so `gpu_accelerated` just needs to flip to
-  `true` and the suggestion tiers can be raised accordingly.
-- **HTTPS / auth**: the web UI and Ollama API are open on the LAN with no
-  login — fine for a trusted home/office network, not for anything more
-  exposed. Add a reverse proxy (Caddy/nginx) with a login page if you want
-  access control.
-- **Multi-user chat history**: currently each browser session is
-  stateless (Ollama itself keeps no chat history across requests); could
-  add per-device conversation storage in the web UI.
+That's it. Your spare PC is now running as a local AI server.
