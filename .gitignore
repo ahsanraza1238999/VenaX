@@ -1,0 +1,16 @@
+# Generated build files
+build/
+rootfs/
+iso/
+output/
+
+# Logs / temporary files
+*.log
+*.tmp
+*.bak
+
+# Editor / OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
